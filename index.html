@@ -585,17 +585,17 @@ async function renderBets(){
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:rgba(0,0,0,0.15)">
           <th style="width:32px;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;text-align:center"></th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Sub-type</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game Date</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Market</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Side</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Line</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Odd</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">EV%</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Stake</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Result</th>
-          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">P&L</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:left">Sub-type</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:left">Game Date</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:left">Game</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:left">Market</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:left">Side</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:center">Line</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:center">Odds</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:center">EV%</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:right">Stake</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:center">Result</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;text-align:right">P&L</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;text-align:center"></th>
         </tr></thead>
         <tbody>`;
@@ -614,25 +614,25 @@ async function renderBets(){
 
         const chk=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}"><input type="checkbox" class="grp-chk" data-gid="${gid}" onchange="onGroupCheck()" style="cursor:pointer;width:13px;height:13px;accent-color:var(--accent)"/></td>`:'';
         const badge=isFirst?`<td rowspan="${n}" style="padding:6px 8px;${sep}"><span class="badge b-${sub.toLowerCase()}">${sub}</span></td>`:'';
-        const odd=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">${parseFloat(b.odd||0).toFixed(2)}</td>`:'';
-        const ev=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">${parseFloat(b.ev||0).toFixed(1)}%</td>`:'';
-        const stakeCell=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">R$${parseFloat(b.stake||0).toFixed(2)}</td>`:'';
-        const result=isFirst?`<td rowspan="${n}" style="padding:6px 8px;${sep}">${cu&&cu.role==='trader'
+        const odd=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);text-align:center;${sep}">${parseFloat(b.odd||0).toFixed(2)}</td>`:'';
+        const ev=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);text-align:center;${sep}">${parseFloat(b.ev||0).toFixed(1)}%</td>`:'';
+        const stakeCell=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);text-align:right;${sep}">R$${parseFloat(b.stake||0).toFixed(2)}</td>`:'';
+        const result=isFirst?`<td rowspan="${n}" style="padding:6px 8px;text-align:center;${sep}">${cu&&cu.role==='trader'
           ?`<select class="res-sel" onchange="setResGroup('${gid}',this.value,${parseFloat(b.odd||1)},${parseFloat(b.stake||0)})"><option value="" ${!b.result?'selected':''}>—</option><option value="W" ${b.result==='W'?'selected':''}>W</option><option value="L" ${b.result==='L'?'selected':''}>L</option></select>`
           :`<span class="badge b-${b.result||'P'}">${b.result||'—'}</span>`
         }</td>`:'';
         const plVal=b.pl!=null&&b.pl!==''?'R$'+parseFloat(b.pl).toFixed(2):'—';
         const plCls=parseFloat(b.pl||0)>0?'color:var(--green)':parseFloat(b.pl||0)<0?'color:var(--red)':'';
-        const pl=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${plCls};${sep}">${plVal}</td>`:'';
+        const pl=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);text-align:right;${plCls};${sep}">${plVal}</td>`:'';
         const del=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}"><button onclick="delGroup('${gid}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button></td>`:'';
 
         html+=`<tr style="background:${bg}">
           ${chk}${badge}
-          <td style="padding:6px 8px;border-left:3px solid ${bc};font-family:var(--mono);font-size:11px;${sep}">${b.game_date||''}</td>
-          <td style="padding:6px 8px;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${sep}">${b.game||''}</td>
-          <td style="padding:6px 8px;${sep}">${b.market||''}</td>
-          <td style="padding:6px 8px;${sep}">${b.side||''}</td>
-          <td style="padding:6px 8px;${sep}">${b.line||''}</td>
+          <td style="padding:6px 8px;border-left:3px solid ${bc};font-family:var(--mono);font-size:11px;text-align:left;${sep}">${b.game_date||''}</td>
+          <td style="padding:6px 8px;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;${sep}">${b.game||''}</td>
+          <td style="padding:6px 8px;text-align:left;${sep}">${b.market||''}</td>
+          <td style="padding:6px 8px;text-align:left;${sep}">${b.side||''}</td>
+          <td style="padding:6px 8px;text-align:center;${sep}">${b.line||''}</td>
           ${odd}${ev}${stakeCell}${result}${pl}${del}
         </tr>`;
       });

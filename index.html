@@ -242,12 +242,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
         <!-- BULK ACTION BAR -->
         <div id="bulk-bar" class="hidden" style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span id="bulk-count" style="font-size:13px;font-weight:500;color:var(--accent2)">0 selected</span>
+          <button onclick="selectAll()" style="padding:5px 12px;background:none;border:1px solid var(--border2);border-radius:7px;font-size:12px;color:var(--text2);cursor:pointer">Select All</button>
           <div style="flex:1"></div>
           <select id="bulk-result-sel" style="padding:7px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px">
             <option value="">Set Result...</option>
             <option value="W">W — Won</option>
             <option value="L">L — Lost</option>
-            <option value="">— Clear</option>
           </select>
           <button onclick="bulkSetResult()" style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Apply Result</button>
           <button onclick="bulkDelete()" style="padding:7px 16px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">🗑 Delete</button>
@@ -624,7 +624,12 @@ async function renderBets(){
         const plVal=b.pl!=null&&b.pl!==''?'R$'+parseFloat(b.pl).toFixed(2):'—';
         const plCls=parseFloat(b.pl||0)>0?'color:var(--green)':parseFloat(b.pl||0)<0?'color:var(--red)':'';
         const pl=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${plCls};${sep}">${plVal}</td>`:'';
-        const del=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}"><button onclick="delGroup('${gid}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button></td>`:'';
+        const del=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}">
+          <div style="display:flex;gap:4px;justify-content:center">
+            <button onclick="editGroup('${gid}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--text3)'" title="Edit">✏️</button>
+            <button onclick="delGroup('${gid}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'" title="Delete">🗑</button>
+          </div>
+        </td>`:'';
 
         html+=`<tr style="background:${bg}">
           ${chk}${badge}
@@ -1019,6 +1024,13 @@ async function openM(id){
     document.getElementById('bet-odd-wrap').classList.add('hidden');
     document.getElementById('btn-add-sel').style.display='none';
     document.getElementById('sel-max-txt').textContent=' / 4';
+    document.getElementById('bet-modal-title').textContent='🎯 New Bet';
+    document.getElementById('btn-sv-bet').textContent='Save Bet';
+    document.getElementById('btn-sv-bet').onclick=()=>saveBet();
+    document.getElementById('bet-account').value='';
+    document.getElementById('bet-stake').value='';
+    document.getElementById('bet-obs').value='';
+    document.getElementById('msg-bet').innerHTML='';
   }
   if(id==='m-account'||id==='m-tx') await populateSelects();
 }
@@ -1118,7 +1130,83 @@ async function confirmImport(){
 }
 function resetImport(){parsedRows=[];document.getElementById('preview-section').classList.add('hidden');document.getElementById('file-input').value='';document.getElementById('import-msg').innerHTML='';document.getElementById('progress-fill').style.width='0';document.getElementById('progress-bar').classList.add('hidden');document.getElementById('btn-confirm-import').disabled=false;}
 
-// ── BULK SELECTION ────────────────────────────────────────────────────────────
+function selectAll(){
+  document.querySelectorAll('.grp-chk').forEach(c=>c.checked=true);
+  onGroupCheck();
+}
+
+async function editGroup(gid){
+  // Load group data
+  const rows=await sbGet('bets',`select=*&group_id=eq.${gid}&order=id.asc`);
+  if(!Array.isArray(rows)||!rows.length) return;
+
+  const b0=rows[0];
+  // Open modal
+  await openM('m-bet');
+
+  // Set type
+  const type=b0.bet_type||'Regular';
+  const typeMap={'L15':0,'Yankee':1,'Regular':2};
+  const btns=document.querySelectorAll('#bet-type-btns .type-btn');
+  btns.forEach((b,i)=>b.classList.toggle('active',i===(typeMap[type]??2)));
+  betType=type;
+  document.getElementById('bet-odd-wrap').classList.toggle('hidden',type!=='Regular');
+  document.getElementById('btn-add-sel').style.display=type==='Regular'?'flex':'none';
+
+  // Set account and stake
+  document.getElementById('bet-account').value=b0.account||'';
+  document.getElementById('bet-stake').value=b0.stake||'';
+  document.getElementById('bet-obs').value=b0.notes||'';
+
+  // Get unique selections (by game+side+line)
+  const uniqueSels=[];
+  const seen=new Set();
+  rows.forEach(r=>{
+    const key=`${r.game}|${r.side}|${r.line}`;
+    if(!seen.has(key)){seen.add(key);uniqueSels.push(r);}
+  });
+
+  // Build selection rows
+  const n={L15:4,Yankee:3}[type]||uniqueSels.length;
+  buildSels(n,type==='Regular');
+
+  // Fill in the data
+  uniqueSels.forEach((s,i)=>{
+    const idx=i+1;
+    const gd=document.getElementById(`s${idx}-gdate`);
+    if(gd) gd.value=s.game_date||'';
+    const lg=document.getElementById(`s${idx}-league`);
+    if(lg) lg.value=s.league||'';
+    const gm=document.getElementById(`s${idx}-game`);
+    if(gm) gm.value=s.game||'';
+    const mk=document.getElementById(`s${idx}-market`);
+    if(mk) mk.value=s.market||'';
+    const sd=document.getElementById(`s${idx}-side`);
+    if(sd) sd.value=s.side||'';
+    const li=document.getElementById(`s${idx}-line`);
+    if(li) li.value=s.line||'';
+    const ev=document.getElementById(`s${idx}-ev`);
+    if(ev) ev.value=s.ev||'';
+  });
+
+  // Change save button to update mode
+  document.getElementById('bet-modal-title').textContent='✏️ Edit Bet';
+  const saveBtn=document.getElementById('btn-sv-bet');
+  saveBtn.textContent='Update Bet';
+  saveBtn.onclick=async()=>{
+    // Delete old group and save new
+    await delGroupSilent(gid);
+    saveBtn.onclick=()=>saveBet();
+    saveBtn.textContent='Save Bet';
+    document.getElementById('bet-modal-title').textContent='🎯 New Bet';
+    await saveBet();
+  };
+}
+
+async function delGroupSilent(gid){
+  const rows=await sbGet('bets',`select=id&group_id=eq.${gid}`);
+  if(Array.isArray(rows)) for(const r of rows) await sbDelete('bets',r.id);
+}
 let selectedGroups=new Set();
 
 function onGroupCheck(){

@@ -254,15 +254,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
           <button onclick="clearSelection()" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text2);cursor:pointer">Cancel</button>
         </div>
 
-        <div class="tbl-wrap">
-          <table class="bets-table"><thead><tr>
-            <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAllBets(this)" style="cursor:pointer;width:14px;height:14px;accent-color:var(--accent)"/></th>
-            <th>Date</th><th>Type</th><th>Sub-type</th><th>Game Date</th>
-            <th>Game</th><th>Side</th><th>Line</th>
-            <th>Odd</th><th>Account</th><th>EV%</th><th>Stake</th>
-            <th>Result</th><th>P&L</th><th style="text-align:center">Actions</th>
-          </tr></thead><tbody id="bets-body"></tbody></table>
-        </div>
+
+        <div id="bets-cards-container"></div>
+
       </div>
     </div>
 
@@ -541,70 +535,113 @@ async function renderDashboard(){
 // ── ALL BETS ──────────────────────────────────────────────────────────────────
 async function renderBets(){
   const bets=await sbGet('bets','select=*&order=id.asc');
-  const tb=document.getElementById('bets-body');
-  if(!Array.isArray(bets)||!bets.length){tb.innerHTML='<tr><td colspan="15" style="text-align:center;padding:2rem;color:var(--text3)">No bets yet. Click "+ New Bet" to start!</td></tr>';return;}
+  const container=document.getElementById('bets-cards-container');
+  if(!Array.isArray(bets)||!bets.length){
+    container.innerHTML='<div style="text-align:center;padding:3rem;color:var(--text3);font-size:13px">No bets yet. Click "+ New Bet" to start!</div>';
+    return;
+  }
 
-  // Group by group_id if available, else fallback to individual rows
-  const groups=[];
-  const seen=new Map();
+  // 1. Group by group_id → combo groups
+  const comboGroups=new Map();
   bets.forEach(b=>{
     const gkey=b.group_id||`solo_${b.id}`;
-    if(!seen.has(gkey)){seen.set(gkey,[]);groups.push(seen.get(gkey));}
-    seen.get(gkey).push(b);
+    if(!comboGroups.has(gkey)) comboGroups.set(gkey,[]);
+    comboGroups.get(gkey).push(b);
+  });
+
+  // 2. Group combo groups by bet_id → bet cards
+  const betCards=new Map();
+  comboGroups.forEach((grp,gid)=>{
+    const betId=grp[0].bet_id||`solo_${grp[0].id}`;
+    if(!betCards.has(betId)) betCards.set(betId,[]);
+    betCards.get(betId).push({gid,grp});
   });
 
   const borderColor={Single:'#3b82f6',Double:'#a855f7',Triple:'#22c55e',Quadruple:'#f59e0b',Combo:'#6c63ff'};
+  const rowBg={Single:'rgba(59,130,246,0.04)',Double:'rgba(168,85,247,0.04)',Triple:'rgba(34,197,94,0.04)',Quadruple:'rgba(245,158,11,0.04)',Combo:'rgba(108,99,255,0.04)'};
 
   let html='';
-  groups.forEach(grp=>{
-    const b0=grp[0];
-    const sub=b0.sub_type||'Single';
-    const bc=borderColor[sub]||'#6c63ff';
-    const gid=b0.group_id||b0.id;
-    const n=grp.length;
+  betCards.forEach((combos,betId)=>{
+    const firstBet=combos[0].grp[0];
+    const betType=firstBet.bet_type||'';
+    const date=firstBet.date||'';
+    const account=firstBet.account||'';
+    const totalStake=combos.reduce((s,{grp})=>s+(parseFloat(grp[0].stake)||0),0);
+    const totalPL=combos.reduce((s,{grp})=>s+(parseFloat(grp[0].pl)||0),0);
 
-    grp.forEach((b,i)=>{
-      const isFirst=i===0;
-      const isLast=i===n-1;
-      let cls='';
-      if(isFirst) cls+=' group-row-first';
-      if(isLast) cls+=' group-row-last';
+    html+=`<div style="margin-bottom:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
 
-      const sharedDate   =isFirst?`<td class="mono" rowspan="${n}">${b.date||''}</td>`:'';
-      const sharedType   =isFirst?`<td rowspan="${n}">${b.bet_type||''}</td>`:'';
-      const sharedBadge  =isFirst?`<td rowspan="${n}"><span class="badge b-${sub.toLowerCase()}">${sub}</span></td>`:'';
-      const sharedOdd    =isFirst?`<td class="mono" rowspan="${n}">${parseFloat(b.odd||0).toFixed(2)}</td>`:'';
-      const sharedAcc    =isFirst?`<td rowspan="${n}" style="max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.account||''}</td>`:'';
-      const sharedEV     =isFirst?`<td class="mono" rowspan="${n}">${parseFloat(b.ev||0).toFixed(1)}%</td>`:'';
-      const sharedStake  =isFirst?`<td class="mono" rowspan="${n}">R$${parseFloat(b.stake||0).toFixed(2)}</td>`:'';
-      const sharedResult =isFirst?`<td rowspan="${n}">${cu&&cu.role==='trader'
-        ?`<select class="res-sel" onchange="setResGroup('${gid}',this.value,${parseFloat(b.odd||1)},${parseFloat(b.stake||0)})">
-            <option value="" ${!b.result?'selected':''}>—</option>
-            <option value="W" ${b.result==='W'?'selected':''}>W</option>
-            <option value="L" ${b.result==='L'?'selected':''}>L</option>
-          </select>`
-        :`<span class="badge b-${b.result||'P'}">${b.result||'—'}</span>`
-      }</td>`:'';
-      const sharedPL     =isFirst?`<td class="mono ${parseFloat(b.pl||0)>0?'pos':parseFloat(b.pl||0)<0?'neg':''}" rowspan="${n}">${b.pl!=null&&b.pl!==''?'R$'+parseFloat(b.pl).toFixed(2):'—'}</td>`:'';
-      const sharedActs   =isFirst?`<td rowspan="${n}" style="text-align:center"><div style="display:flex;gap:4px;justify-content:center">
-        <button class="icon-btn del" onclick="delGroup('${gid}')" title="Delete">🗑</button>
-      </div></td>`:'';
+      <!-- Card header -->
+      <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:var(--accent2);font-family:var(--mono)">#${betId}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text)">${betType}</span>
+        <span style="font-size:11px;color:var(--text3)">📅 ${date}</span>
+        <span style="font-size:11px;color:var(--text3)" title="Account">🏦 ${account}</span>
+        <div style="flex:1"></div>
+        <span style="font-size:11px;color:var(--text3)">${combos.length} bets · R$${totalStake.toFixed(2)} staked</span>
+      </div>
 
-      const sharedChk   =isFirst?`<td rowspan="${n}" style="text-align:center"><input type="checkbox" class="grp-chk" data-gid="${gid}" onchange="onGroupCheck()" style="cursor:pointer;width:14px;height:14px;accent-color:var(--accent)"/></td>`:'';
+      <!-- Inner table -->
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:rgba(0,0,0,0.15)">
+          <th style="width:32px;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;text-align:center"></th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Sub-type</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game Date</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Side</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Line</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Odd</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">EV%</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Stake</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Result</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">P&L</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;text-align:center"></th>
+        </tr></thead>
+        <tbody>`;
 
-      html+=`<tr class="${cls}">
-        ${sharedChk}
-        ${sharedDate}${sharedType}${sharedBadge}
-        <td class="mono" style="border-left:3px solid ${bc}">${b.game_date||''}</td>
-        <td style="max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.game||''}</td>
-        <td>${b.side||b.market||''}</td>
-        <td>${b.line||''}</td>
-        ${sharedOdd}${sharedAcc}${sharedEV}${sharedStake}${sharedResult}${sharedPL}${sharedActs}
-      </tr>`;
+    combos.forEach(({gid,grp},ci)=>{
+      const sub=grp[0].sub_type||'Single';
+      const bc=borderColor[sub]||'#6c63ff';
+      const bg=rowBg[sub]||'transparent';
+      const n=grp.length;
+      const isLastCombo=ci===combos.length-1;
+
+      grp.forEach((b,i)=>{
+        const isFirst=i===0;
+        const isLast=i===n-1;
+        const sep=isLast&&!isLastCombo?'border-bottom:1px solid rgba(255,255,255,0.08)':'border-bottom:1px solid rgba(255,255,255,0.03)';
+
+        const chk=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}"><input type="checkbox" class="grp-chk" data-gid="${gid}" onchange="onGroupCheck()" style="cursor:pointer;width:13px;height:13px;accent-color:var(--accent)"/></td>`:'';
+        const badge=isFirst?`<td rowspan="${n}" style="padding:6px 8px;${sep}"><span class="badge b-${sub.toLowerCase()}">${sub}</span></td>`:'';
+        const odd=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">${parseFloat(b.odd||0).toFixed(2)}</td>`:'';
+        const ev=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">${parseFloat(b.ev||0).toFixed(1)}%</td>`:'';
+        const stakeCell=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${sep}">R$${parseFloat(b.stake||0).toFixed(2)}</td>`:'';
+        const result=isFirst?`<td rowspan="${n}" style="padding:6px 8px;${sep}">${cu&&cu.role==='trader'
+          ?`<select class="res-sel" onchange="setResGroup('${gid}',this.value,${parseFloat(b.odd||1)},${parseFloat(b.stake||0)})"><option value="" ${!b.result?'selected':''}>—</option><option value="W" ${b.result==='W'?'selected':''}>W</option><option value="L" ${b.result==='L'?'selected':''}>L</option></select>`
+          :`<span class="badge b-${b.result||'P'}">${b.result||'—'}</span>`
+        }</td>`:'';
+        const plVal=b.pl!=null&&b.pl!==''?'R$'+parseFloat(b.pl).toFixed(2):'—';
+        const plCls=parseFloat(b.pl||0)>0?'color:var(--green)':parseFloat(b.pl||0)<0?'color:var(--red)':'';
+        const pl=isFirst?`<td rowspan="${n}" style="padding:6px 8px;font-family:var(--mono);${plCls};${sep}">${plVal}</td>`:'';
+        const del=isFirst?`<td rowspan="${n}" style="text-align:center;padding:6px 8px;${sep}"><button onclick="delGroup('${gid}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button></td>`:'';
+
+        html+=`<tr style="background:${bg}">
+          ${chk}${badge}
+          <td style="padding:6px 8px;border-left:3px solid ${bc};font-family:var(--mono);font-size:11px;${sep}">${b.game_date||''}</td>
+          <td style="padding:6px 8px;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${sep}">${b.game||''}</td>
+          <td style="padding:6px 8px;${sep}">${b.side||b.market||''}</td>
+          <td style="padding:6px 8px;${sep}">${b.line||''}</td>
+          ${odd}${ev}${stakeCell}${result}${pl}${del}
+        </tr>`;
+      });
     });
+
+    html+=`</tbody></table></div>`;
   });
-  tb.innerHTML=html;
+
+  container.innerHTML=html;
 }
+
 
 async function setResGroup(gid,val,odd,stake){
   // Update this group's result
@@ -1094,13 +1131,10 @@ function updateBulkBar(){
   const count=selectedGroups.size;
   document.getElementById('bulk-count').textContent=`${count} group${count!==1?'s':''} selected`;
   bar.classList.toggle('hidden',count===0);
-  document.getElementById('chk-all').indeterminate=count>0&&count<document.querySelectorAll('.grp-chk').length;
-  document.getElementById('chk-all').checked=count>0&&count===document.querySelectorAll('.grp-chk').length;
 }
 
 function clearSelection(){
   document.querySelectorAll('.grp-chk').forEach(c=>c.checked=false);
-  document.getElementById('chk-all').checked=false;
   selectedGroups.clear();
   updateBulkBar();
 }

@@ -258,7 +258,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
           <table class="bets-table"><thead><tr>
             <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAllBets(this)" style="cursor:pointer;width:14px;height:14px;accent-color:var(--accent)"/></th>
             <th>Date</th><th>Type</th><th>Sub-type</th><th>Game Date</th>
-            <th>League</th><th>Game</th><th>Side</th><th>Line</th>
+            <th>Game</th><th>Side</th><th>Line</th>
             <th>Odd</th><th>Account</th><th>EV%</th><th>Stake</th>
             <th>Result</th><th>P&L</th><th style="text-align:center">Actions</th>
           </tr></thead><tbody id="bets-body"></tbody></table>
@@ -596,7 +596,6 @@ async function renderBets(){
         ${sharedChk}
         ${sharedDate}${sharedType}${sharedBadge}
         <td class="mono" style="border-left:3px solid ${bc}">${b.game_date||''}</td>
-        <td style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2);font-size:11px">${b.league||''}</td>
         <td style="max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.game||''}</td>
         <td>${b.side||b.market||''}</td>
         <td>${b.line||''}</td>

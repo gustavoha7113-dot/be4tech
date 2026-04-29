@@ -855,16 +855,20 @@ async function saveBet(){
 
   if(!account||!stake||!sels.length){msg.innerHTML='<div class="msg-err">Account, stake and at least 1 selection required</div>';btn.disabled=false;return;}
 
-  // Get next bet ID
-  const existing=await sbGet('bets','select=bet_id&order=id.desc&limit=1');
-  const lastId=Array.isArray(existing)&&existing.length?parseInt(existing[0].bet_id||'0'):0;
+  // Get next bet ID — find max numeric bet_id
+  const existing=await sbGet('bets','select=bet_id&order=id.desc&limit=100');
+  let lastId=0;
+  if(Array.isArray(existing)){
+    existing.forEach(r=>{const n=parseInt(r.bet_id||'0');if(n>lastId)lastId=n;});
+  }
   const betId=String(lastId+1).padStart(3,'0');
   const launchDate=new Date().toISOString().split('T')[0];
+  const ts=Date.now();
 
   let records=[];
 
   let groupCounter=0;
-  function newGroupId(){return`${betId}_${++groupCounter}`;}
+  function newGroupId(){return`${betId}_${ts}_${++groupCounter}`;}
 
   if(betType==='L15'||betType==='Yankee'){
     const combos=COMBOS[betType];

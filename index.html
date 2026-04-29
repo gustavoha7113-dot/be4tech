@@ -239,8 +239,24 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
           <div class="panel-title" style="margin:0">Bet History</div>
           <button class="btn-new-bet trader-only" onclick="openM('m-bet')">+ New Bet</button>
         </div>
+        <!-- BULK ACTION BAR -->
+        <div id="bulk-bar" class="hidden" style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span id="bulk-count" style="font-size:13px;font-weight:500;color:var(--accent2)">0 selected</span>
+          <div style="flex:1"></div>
+          <select id="bulk-result-sel" style="padding:7px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px">
+            <option value="">Set Result...</option>
+            <option value="W">W — Won</option>
+            <option value="L">L — Lost</option>
+            <option value="">— Clear</option>
+          </select>
+          <button onclick="bulkSetResult()" style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Apply Result</button>
+          <button onclick="bulkDelete()" style="padding:7px 16px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">🗑 Delete</button>
+          <button onclick="clearSelection()" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text2);cursor:pointer">Cancel</button>
+        </div>
+
         <div class="tbl-wrap">
           <table class="bets-table"><thead><tr>
+            <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAllBets(this)" style="cursor:pointer;width:14px;height:14px;accent-color:var(--accent)"/></th>
             <th>Date</th><th>Type</th><th>Sub-type</th><th>Game Date</th>
             <th>League</th><th>Game</th><th>Side</th><th>Line</th>
             <th>Odd</th><th>Account</th><th>EV%</th><th>Stake</th>
@@ -574,7 +590,10 @@ async function renderBets(){
         <button class="icon-btn del" onclick="delGroup('${gid}')" title="Delete">🗑</button>
       </div></td>`:'';
 
+      const sharedChk   =isFirst?`<td rowspan="${n}" style="text-align:center"><input type="checkbox" class="grp-chk" data-gid="${gid}" onchange="onGroupCheck()" style="cursor:pointer;width:14px;height:14px;accent-color:var(--accent)"/></td>`:'';
+
       html+=`<tr class="${cls}">
+        ${sharedChk}
         ${sharedDate}${sharedType}${sharedBadge}
         <td class="mono" style="border-left:3px solid ${bc}">${b.game_date||''}</td>
         <td style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2);font-size:11px">${b.league||''}</td>
@@ -999,6 +1018,66 @@ async function confirmImport(){
 }
 function resetImport(){parsedRows=[];document.getElementById('preview-section').classList.add('hidden');document.getElementById('file-input').value='';document.getElementById('import-msg').innerHTML='';document.getElementById('progress-fill').style.width='0';document.getElementById('progress-bar').classList.add('hidden');document.getElementById('btn-confirm-import').disabled=false;}
 
+// ── BULK SELECTION ────────────────────────────────────────────────────────────
+let selectedGroups=new Set();
+
+function onGroupCheck(){
+  selectedGroups=new Set();
+  document.querySelectorAll('.grp-chk:checked').forEach(chk=>selectedGroups.add(chk.dataset.gid));
+  updateBulkBar();
+}
+
+function toggleAllBets(chk){
+  document.querySelectorAll('.grp-chk').forEach(c=>{c.checked=chk.checked;});
+  onGroupCheck();
+}
+
+function updateBulkBar(){
+  const bar=document.getElementById('bulk-bar');
+  const count=selectedGroups.size;
+  document.getElementById('bulk-count').textContent=`${count} group${count!==1?'s':''} selected`;
+  bar.classList.toggle('hidden',count===0);
+  document.getElementById('chk-all').indeterminate=count>0&&count<document.querySelectorAll('.grp-chk').length;
+  document.getElementById('chk-all').checked=count>0&&count===document.querySelectorAll('.grp-chk').length;
+}
+
+function clearSelection(){
+  document.querySelectorAll('.grp-chk').forEach(c=>c.checked=false);
+  document.getElementById('chk-all').checked=false;
+  selectedGroups.clear();
+  updateBulkBar();
+}
+
+async function bulkSetResult(){
+  const val=document.getElementById('bulk-result-sel').value;
+  if(!val){alert('Select a result first');return;}
+  if(!selectedGroups.size){alert('No groups selected');return;}
+  if(!confirm(`Set result "${val}" for ${selectedGroups.size} group(s)?`)) return;
+  for(const gid of selectedGroups){
+    const rows=await sbGet('bets',`select=id,odd,stake&group_id=eq.${gid}`);
+    if(Array.isArray(rows)){
+      for(const r of rows){
+        const odd=parseFloat(r.odd)||1;
+        const stake=parseFloat(r.stake)||0;
+        const pl=val==='W'?parseFloat(((odd*stake)-stake).toFixed(2)):-parseFloat(stake.toFixed(2));
+        await sbPatch('bets',r.id,{result:val,pl});
+      }
+    }
+  }
+  clearSelection();
+  renderBets();
+}
+
+async function bulkDelete(){
+  if(!selectedGroups.size){return;}
+  if(!confirm(`Delete ${selectedGroups.size} group(s)? This cannot be undone.`)) return;
+  for(const gid of selectedGroups){
+    const rows=await sbGet('bets',`select=id&group_id=eq.${gid}`);
+    if(Array.isArray(rows)) for(const r of rows) await sbDelete('bets',r.id);
+  }
+  clearSelection();
+  renderBets();
+}
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden');});});
 document.addEventListener('click',e=>{if(!e.target.closest('.autocomplete-wrap')) document.querySelectorAll('.autocomplete-list').forEach(l=>l.classList.add('hidden'));});
 </script>

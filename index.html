@@ -743,6 +743,9 @@ async function delBetGroup(betId,subType){
 
 // ── BET LAUNCH MODAL ──────────────────────────────────────────────────────────
 function setBetType(t,el){
+  // Save current selection data before rebuilding
+  const currentSels=getSels();
+
   betType=t;
   document.querySelectorAll('#bet-type-btns .type-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
@@ -750,9 +753,23 @@ function setBetType(t,el){
   const isRegular=t==='Regular';
   document.getElementById('btn-add-sel').style.display=isRegular?'flex':'none';
   document.getElementById('bet-odd-wrap').classList.toggle('hidden',!isRegular);
-  const n=fixedCounts[t]||1;
-  document.getElementById('sel-max-txt').textContent=isRegular?'':` / ${n}`;
+  const n=fixedCounts[t]||Math.max(currentSels.length,1);
+  document.getElementById('sel-max-txt').textContent=isRegular?'':` / ${fixedCounts[t]}`;
+
   buildSels(n,isRegular);
+
+  // Restore data into new fields
+  currentSels.forEach((s,i)=>{
+    const idx=i+1;
+    const gd=document.getElementById(`s${idx}-gdate`);if(gd&&s.gameDate) gd.value=s.gameDate;
+    const lg=document.getElementById(`s${idx}-league`);if(lg&&s.league) lg.value=s.league;
+    const gm=document.getElementById(`s${idx}-game`);if(gm&&s.game) gm.value=s.game;
+    const mk=document.getElementById(`s${idx}-market`);if(mk&&s.market) mk.value=s.market;
+    const sd=document.getElementById(`s${idx}-side`);if(sd&&s.side) sd.value=s.side;
+    const li=document.getElementById(`s${idx}-line`);if(li&&s.line) li.value=s.line;
+    const od=document.getElementById(`s${idx}-odd`);if(od&&s.odd) od.value=s.odd;
+    const ev=document.getElementById(`s${idx}-ev`);if(ev&&s.ev) ev.value=s.ev;
+  });
 }
 
 function buildSels(n,allowAdd){

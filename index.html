@@ -588,6 +588,7 @@ async function renderBets(){
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Sub-type</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game Date</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Game</th>
+          <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Market</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Side</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Line</th>
           <th style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">Odd</th>
@@ -629,7 +630,8 @@ async function renderBets(){
           ${chk}${badge}
           <td style="padding:6px 8px;border-left:3px solid ${bc};font-family:var(--mono);font-size:11px;${sep}">${b.game_date||''}</td>
           <td style="padding:6px 8px;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${sep}">${b.game||''}</td>
-          <td style="padding:6px 8px;${sep}">${b.side||b.market||''}</td>
+          <td style="padding:6px 8px;${sep}">${b.market||''}</td>
+          <td style="padding:6px 8px;${sep}">${b.side||''}</td>
           <td style="padding:6px 8px;${sep}">${b.line||''}</td>
           ${odd}${ev}${stakeCell}${result}${pl}${del}
         </tr>`;
@@ -771,7 +773,7 @@ function addSel(){
     </div>
     <div class="sel-card-body" id="sel-body-${idx}">
       <div class="mf-row">
-        <div class="mf"><label>Game Date</label><input type="date" id="s${idx}-gdate"/></div>
+        <div class="mf"><label>Game Date</label><input type="date" id="s${idx}-gdate" value="${new Date().toISOString().split('T')[0]}"/></div>
         <div class="mf"><label>League</label><input type="text" id="s${idx}-league" placeholder="e.g. Premier League"/></div>
       </div>
       <div class="mf autocomplete-wrap">
@@ -1175,7 +1177,7 @@ async function bulkDelete(){
   clearSelection();
   renderBets();
 }
-document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden');});});
+document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o&&o.id!=='m-bet')o.classList.add('hidden');});});
 document.addEventListener('click',e=>{if(!e.target.closest('.autocomplete-wrap')) document.querySelectorAll('.autocomplete-list').forEach(l=>l.classList.add('hidden'));});
 </script>
 </body>

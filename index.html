@@ -607,11 +607,69 @@ async function renderBets(){
 }
 
 async function setResGroup(gid,val,odd,stake){
+  // Update this group's result
   const pl=val==='W'?parseFloat(((odd*stake)-stake).toFixed(2)):val==='L'?-parseFloat(stake.toFixed(2)):null;
-  // Update all bets in this group
-  const rows=await sbGet('bets',`select=id&group_id=eq.${gid}`);
-  if(Array.isArray(rows)) for(const r of rows) await sbPatch('bets',r.id,{result:val,pl});
+  const rows=await sbGet('bets',`select=id,bet_id,sub_type,game,side,line&group_id=eq.${gid}`);
+  if(!Array.isArray(rows)||!rows.length) return;
+  for(const r of rows) await sbPatch('bets',r.id,{result:val,pl});
+
+  // If this is a Single in a system bet (L15/Yankee), cascade to derivatives
+  const firstRow=rows[0];
+  const betId=firstRow.bet_id;
+  if(betId && firstRow.sub_type==='Single'){
+    await cascadeFromSingles(betId);
+  }
   renderBets();
+}
+
+async function cascadeFromSingles(betId){
+  // Get all bets for this bet_id
+  const allBets=await sbGet('bets',`select=*&bet_id=eq.${betId}&order=id.asc`);
+  if(!Array.isArray(allBets)) return;
+
+  // Get all singles and their results
+  const singles=allBets.filter(b=>b.sub_type==='Single');
+  if(!singles.length) return;
+
+  // Build a map: game+side+line → result for each single
+  const singleResultMap={};
+  singles.forEach(s=>{
+    const key=`${s.game}|${s.side}|${s.line}`;
+    singleResultMap[key]=s.result||'';
+  });
+
+  // Get all non-single groups
+  const nonSingles=allBets.filter(b=>b.sub_type!=='Single');
+
+  // Group non-singles by group_id
+  const groupMap={};
+  nonSingles.forEach(b=>{
+    if(!groupMap[b.group_id]) groupMap[b.group_id]=[];
+    groupMap[b.group_id].push(b);
+  });
+
+  // For each combo group, determine result based on component singles
+  for(const [gid,grp] of Object.entries(groupMap)){
+    const results=grp.map(b=>{
+      const key=`${b.game}|${b.side}|${b.line}`;
+      return singleResultMap[key]||'';
+    });
+
+    let comboResult='';
+    if(results.every(r=>r==='W')) comboResult='W';
+    else if(results.some(r=>r==='L')) comboResult='L';
+    // If any pending → leave as pending
+
+    if(comboResult){
+      const odd=parseFloat(grp[0].odd)||1;
+      const stake=parseFloat(grp[0].stake)||0;
+      const pl=comboResult==='W'?parseFloat(((odd*stake)-stake).toFixed(2)):-parseFloat(stake.toFixed(2));
+      for(const r of grp) await sbPatch('bets',r.id,{result:comboResult,pl});
+    } else {
+      // Reset to pending if not all singles resolved
+      for(const r of grp) await sbPatch('bets',r.id,{result:'',pl:null});
+    }
+  }
 }
 
 async function setRes(id,val,odd,stake){
@@ -1052,8 +1110,9 @@ async function bulkSetResult(){
   if(!val){alert('Select a result first');return;}
   if(!selectedGroups.size){alert('No groups selected');return;}
   if(!confirm(`Set result "${val}" for ${selectedGroups.size} group(s)?`)) return;
+  const affectedBetIds=new Set();
   for(const gid of selectedGroups){
-    const rows=await sbGet('bets',`select=id,odd,stake&group_id=eq.${gid}`);
+    const rows=await sbGet('bets',`select=id,odd,stake,bet_id,sub_type&group_id=eq.${gid}`);
     if(Array.isArray(rows)){
       for(const r of rows){
         const odd=parseFloat(r.odd)||1;
@@ -1061,8 +1120,13 @@ async function bulkSetResult(){
         const pl=val==='W'?parseFloat(((odd*stake)-stake).toFixed(2)):-parseFloat(stake.toFixed(2));
         await sbPatch('bets',r.id,{result:val,pl});
       }
+      if(rows.length&&rows[0].sub_type==='Single'&&rows[0].bet_id){
+        affectedBetIds.add(rows[0].bet_id);
+      }
     }
   }
+  // Cascade for any system bets where singles were set
+  for(const betId of affectedBetIds) await cascadeFromSingles(betId);
   clearSelection();
   renderBets();
 }
